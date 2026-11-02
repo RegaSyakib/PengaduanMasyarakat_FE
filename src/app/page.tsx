@@ -32,8 +32,11 @@ export default function Home() {
             <div className="flex items-center space-x-4">
               {isLoggedIn ? (
                 <>
-                  <Link href={userRole === 'admin' || userRole === 'super_admin' ? "/admin" : "/dashboard"} className="bg-[#2C8582] text-white px-6 py-2.5 rounded-full font-bold hover:bg-[#48CCC4] transition-colors shadow-sm">
-                    Dashboard
+                  <Link 
+                    href={userRole === 'admin' || userRole === 'super_admin' ? "/admin" : "/dashboard"} 
+                    className="bg-[#2C8582] text-white px-6 py-2.5 rounded-full font-bold hover:bg-[#48CCC4] transition-colors shadow-sm flex items-center gap-2"
+                  >
+                    {userRole === 'super_admin' ? 'Panel Super Admin' : userRole === 'admin' ? 'Panel Admin' : 'Dashboard'}
                   </Link>
                   <button
                     onClick={() => {
@@ -80,13 +83,27 @@ export default function Home() {
             BREAKING NEWS adalah sosial media pengaduan masyarakat. Laporkan fasilitas rusak, jalan berlubang, atau masalah lingkungan langsung ke pemerintah desa secara transparan.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-            <Link href={isLoggedIn ? (userRole === 'admin' || userRole === 'super_admin' ? "/admin" : "/dashboard") : "/register"} className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-[#2C8582] text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-[#48CCC4] transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
-              <span>Mulai Lapor Sekarang</span>
-              <ArrowRight className="h-5 w-5" />
-            </Link>
-            <Link href={isLoggedIn ? (userRole === 'admin' || userRole === 'super_admin' ? "/admin" : "/dashboard") : "/login"} className="w-full sm:w-auto flex items-center justify-center bg-white text-[#2C8582] border-2 border-[#2C8582] px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-50 transition-all">
-              Jelajahi Laporan
-            </Link>
+            {isLoggedIn && (userRole === 'admin' || userRole === 'super_admin') ? (
+              <>
+                <Link href="/admin" className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-[#2C8582] text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-[#48CCC4] transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
+                  <span>Kelola Laporan Masuk</span>
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+                <Link href="/admin" className="w-full sm:w-auto flex items-center justify-center bg-white text-[#2C8582] border-2 border-[#2C8582] px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-50 transition-all">
+                  Kelola Akun Pengguna
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href={isLoggedIn ? "/dashboard" : "/register"} className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-[#2C8582] text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-[#48CCC4] transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
+                  <span>Mulai Lapor Sekarang</span>
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+                <Link href={isLoggedIn ? "/dashboard" : "/login"} className="w-full sm:w-auto flex items-center justify-center bg-white text-[#2C8582] border-2 border-[#2C8582] px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-50 transition-all">
+                  Jelajahi Laporan
+                </Link>
+              </>
+            )}
           </div>
         </div>
 
@@ -104,8 +121,13 @@ export default function Home() {
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Lampu Jalan Mati di RT 04</h3>
             <p className="text-gray-600 mb-4">Mohon bantuannya pak, sudah 3 hari lampu jalan utama mati, sangat gelap dan rawan kecelakaan.</p>
-            <div className="w-full h-48 bg-gray-100 rounded-xl mb-4 overflow-hidden relative">
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+            <div className="w-full h-48 bg-gray-100 rounded-xl mb-4 overflow-hidden relative group">
+              <img 
+                src="/images/lampu-jalan-mati.jpg" 
+                alt="Lampu Jalan Mati di RT 04" 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
             </div>
             <div className="flex justify-between items-center text-sm font-bold">
               <span className="text-[#2C8582] bg-[#E0F4F3] px-3 py-1 rounded-full">Dalam Proses</span>

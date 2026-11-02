@@ -4,20 +4,26 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
     if (!email || !password) {
-      alert('Silakan isi email dan password.');
+      const msg = 'Silakan isi email dan password.';
+      setErrorMsg(msg);
+      alert(msg);
       return;
     }
+    setLoading(true);
     try {
       const res = await api.post('/auth/login', { email, password });
       localStorage.setItem('token', res.data.token);
@@ -28,8 +34,12 @@ export default function Login() {
       } else {
         router.push('/dashboard');
       }
-    } catch (error) {
-      alert('Login gagal. Cek kembali email dan password Anda.');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Login gagal. Cek kembali email dan password Anda.';
+      setErrorMsg(msg);
+      alert(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,6 +50,13 @@ export default function Login() {
           <h1 className="text-5xl font-extrabold text-[#2C8582] tracking-tight">BREAKING NEWS</h1>
           <p className="mt-3 text-base text-gray-600">Mari bersama bangun kota yang lebih baik.</p>
         </div>
+
+        {errorMsg && (
+          <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+            <span className="font-semibold">{errorMsg}</span>
+          </div>
+        )}
         
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           <div className="space-y-4">
@@ -54,10 +71,17 @@ export default function Login() {
                 <input
                   type="email"
                   required
-                  className="w-full bg-[#E0EAE8] text-gray-900 rounded-xl pl-12 pr-4 py-3.5 outline-none focus:ring-2 focus:ring-[#2C8582] transition-all"
+                  className={`w-full bg-[#E0EAE8] text-gray-900 rounded-xl pl-12 pr-4 py-3.5 outline-none transition-all ${
+                    errorMsg.toLowerCase().includes('email')
+                      ? 'border-2 border-red-500 focus:ring-2 focus:ring-red-400'
+                      : 'focus:ring-2 focus:ring-[#2C8582]'
+                  }`}
                   placeholder="Masukkan email atau no telp"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (errorMsg) setErrorMsg('');
+                  }}
                 />
               </div>
             </div>
@@ -75,10 +99,17 @@ export default function Login() {
                 <input
                   type={showPassword ? "text" : "password"}
                   required
-                  className="w-full bg-[#E0EAE8] text-gray-900 rounded-xl pl-12 pr-12 py-3.5 outline-none focus:ring-2 focus:ring-[#2C8582] transition-all"
+                  className={`w-full bg-[#E0EAE8] text-gray-900 rounded-xl pl-12 pr-12 py-3.5 outline-none transition-all ${
+                    errorMsg.toLowerCase().includes('password')
+                      ? 'border-2 border-red-500 focus:ring-2 focus:ring-red-400'
+                      : 'focus:ring-2 focus:ring-[#2C8582]'
+                  }`}
                   placeholder="Masukkan password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (errorMsg) setErrorMsg('');
+                  }}
                 />
                 <div className="absolute right-4 cursor-pointer" onClick={() => setShowPassword(!showPassword)}>
                   {showPassword ? <EyeOff className="h-5 w-5 text-[#8E918B]" /> : <Eye className="h-5 w-5 text-[#8E918B]" />}
@@ -90,9 +121,10 @@ export default function Login() {
 
           <button
             type="submit"
-            className="w-full flex justify-center py-3.5 px-4 rounded-xl text-white font-bold bg-[#2C8582] hover:bg-[#48CCC4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2C8582] transition-colors"
+            disabled={loading}
+            className="w-full flex justify-center py-3.5 px-4 rounded-xl text-white font-bold bg-[#2C8582] hover:bg-[#48CCC4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2C8582] transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
-            Masuk
+            {loading ? 'Memeriksa...' : 'Masuk'}
           </button>
         </form>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import api from '@/lib/api';
+import api, { API_BASE_URL } from '@/lib/api';
 import { LogOut, Home, Bell, Map, User as UserIcon, MessageSquare, ThumbsUp, MoreHorizontal, Image as ImageIcon, MapPin, Search } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import ProfileSection from '@/components/ProfileSection';
@@ -12,7 +12,7 @@ const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false }
 const MapViewer = dynamic(() => import('@/components/MapViewer'), { ssr: false });
 
 export default function Dashboard() {
-  const [complaints, setComplaints] = useState([]);
+  const [complaints, setComplaints] = useState<any[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState<File | null>(null);
@@ -51,7 +51,20 @@ export default function Dashboard() {
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
-      setUser(JSON.parse(userData));
+      try {
+        const parsed = JSON.parse(userData);
+        setUser(parsed);
+        // Akun admin & superadmin bertugas mengelola laporan warga dan pengguna di Panel Admin (/admin)
+        if (parsed.role === 'admin' || parsed.role === 'super_admin') {
+          router.replace('/admin');
+          return;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      router.replace('/login');
+      return;
     }
     fetchComplaints();
     fetchNotifications();
@@ -82,14 +95,13 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeleteNotificationResponse = async (id: number) => {
-    if (!confirm('Yakin ingin menghapus tanggapan ini?')) return;
+  const handleDeleteNotification = async (id: number) => {
+    if (!confirm('Yakin ingin menghapus notifikasi ini?')) return;
     try {
-      await api.delete(`/responses/${id}`);
-      alert('Tanggapan berhasil dihapus');
+      await api.delete(`/complaints/notifications/${id}`);
       fetchNotifications();
     } catch (error) {
-      alert('Gagal menghapus tanggapan');
+      alert('Gagal menghapus notifikasi');
     }
   };
 
@@ -112,12 +124,27 @@ export default function Dashboard() {
   };
 
   const toggleLike = async (complaintId: number) => {
+    // Optimistic UI update
+    setComplaints((prev: any[]) => prev.map(c => {
+      if (c.id === complaintId) {
+        const currentlyLiked = !!c.is_liked_by_me;
+        return {
+          ...c,
+          is_liked_by_me: !currentlyLiked,
+          likes_count: Math.max(0, (c.likes_count || 0) + (currentlyLiked ? -1 : 1))
+        };
+      }
+      return c;
+    }));
+
     try {
       await api.post(`/complaints/${complaintId}/like`);
-      // Optimistically fetch or update state
       fetchComplaints();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling like:', error);
+      fetchComplaints(); // Revert on failure
+      const msg = error?.response?.data?.message || 'Gagal menyukai laporan';
+      alert(msg);
     }
   };
 
@@ -129,7 +156,7 @@ export default function Dashboard() {
       try {
         const res = await api.get(`/complaints/${complaintId}/comments`);
         setCommentsData(prev => ({ ...prev, [complaintId]: res.data }));
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching comments:', error);
       }
     }
@@ -141,14 +168,16 @@ export default function Dashboard() {
     if (!text || text.trim() === '') return;
 
     try {
-      await api.post(`/complaints/${complaintId}/comments`, { comment: text });
+      await api.post(`/complaints/${complaintId}/comments`, { comment: text.trim() });
       setCommentInput(prev => ({ ...prev, [complaintId]: '' }));
       // Refresh comments and post comment count
       const res = await api.get(`/complaints/${complaintId}/comments`);
       setCommentsData(prev => ({ ...prev, [complaintId]: res.data }));
       fetchComplaints(); // to update comment count
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting comment:', error);
+      const msg = error?.response?.data?.message || 'Gagal mengirim komentar';
+      alert(msg);
     }
   };
 
@@ -359,7 +388,7 @@ export default function Dashboard() {
                 >
                   <div className="w-9 h-9 rounded-full border-2 border-gray-100 group-hover:border-[#2C8582] transition-all flex items-center justify-center bg-gray-50 overflow-hidden relative">
                     {user?.profile_image ? (
-                      <img src={`http://localhost:5000${user.profile_image}`} className="w-full h-full object-cover" alt={user.name} />
+                      <img src={`${API_BASE_URL}${user.profile_image}`} className="w-full h-full object-cover" alt={user.name} />
                     ) : (
                       <UserIcon className="h-5 w-5 text-gray-400 group-hover:text-[#2C8582]" />
                     )}
@@ -411,7 +440,7 @@ export default function Dashboard() {
                 <div className="flex space-x-4 mb-4">
                   <div className="w-10 h-10 rounded-full bg-[#E0F4F3] flex items-center justify-center text-[#2C8582] font-bold overflow-hidden">
                     {user?.profile_image ? (
-                      <img src={`http://localhost:5000${user.profile_image}`} className="w-full h-full object-cover" alt={user.name} />
+                      <img src={`${API_BASE_URL}${user.profile_image}`} className="w-full h-full object-cover" alt={user.name} />
                     ) : (
                       user?.name?.[0]?.toUpperCase() || 'U'
                     )}
@@ -438,6 +467,7 @@ export default function Dashboard() {
                       <option value="Lampu Jalan">Lampu Jalan</option>
                       <option value="Keamanan">Keamanan</option>
                       <option value="Fasilitas Umum">Fasilitas Umum</option>
+                      <option value="Kejadian Bencana">Kejadian Bencana</option>
                       <option value="Lainnya">Lainnya</option>
                     </select>
                   </div>
@@ -523,7 +553,7 @@ export default function Dashboard() {
                       <div className="flex space-x-3">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#D5E5E3] to-[#D9B4B0] flex items-center justify-center text-gray-700 font-bold text-lg shadow-inner overflow-hidden flex-shrink-0">
                           {c.user_profile_image ? (
-                            <img src={`http://localhost:5000${c.user_profile_image}`} className="w-full h-full object-cover" alt={c.user_name} />
+                            <img src={`${API_BASE_URL}${c.user_profile_image}`} className="w-full h-full object-cover" alt={c.user_name} />
                           ) : (
                             c.user_name?.[0]?.toUpperCase() || 'A'
                           )}
@@ -589,7 +619,7 @@ export default function Dashboard() {
                     {/* Attached Image */}
                     {c.image && (
                       <div className="mb-4 overflow-hidden rounded-xl border border-gray-100">
-                        <img src={`http://localhost:5000${c.image}`} alt="Lampiran Laporan" className="w-full object-cover max-h-96" />
+                        <img src={`${API_BASE_URL}${c.image}`} alt="Lampiran Laporan" className="w-full object-cover max-h-96" />
                       </div>
                     )}
 
@@ -646,7 +676,7 @@ export default function Dashboard() {
                         <form onSubmit={(e) => submitComment(e, c.id)} className="flex items-center space-x-2">
                           <div className="w-8 h-8 rounded-full bg-[#E0F4F3] flex-shrink-0 flex items-center justify-center text-[#2C8582] font-bold text-xs overflow-hidden">
                             {user?.profile_image ? (
-                              <img src={`http://localhost:5000${user.profile_image}`} className="w-full h-full object-cover" alt={user.name} />
+                              <img src={`${API_BASE_URL}${user.profile_image}`} className="w-full h-full object-cover" alt={user.name} />
                             ) : (
                               user?.name?.[0]?.toUpperCase() || 'U'
                             )}
@@ -711,11 +741,11 @@ export default function Dashboard() {
                                 <button 
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDeleteNotificationResponse(n.id);
+                                    handleDeleteNotification(n.id);
                                   }}
                                   className="text-red-500 hover:text-red-700 text-xs font-semibold bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg border border-red-200 transition-colors"
                                 >
-                                  Hapus Tanggapan
+                                  Hapus Notifikasi
                                 </button>
                               )}
                             </div>
@@ -830,7 +860,7 @@ export default function Dashboard() {
                   <h3 className="font-bold text-gray-900 mb-2">Lampiran Foto</h3>
                   <div className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
                     <img 
-                      src={`http://localhost:5000${selectedComplaint.image}`} 
+                      src={`${API_BASE_URL}${selectedComplaint.image}`} 
                       alt="Lampiran" 
                       className="w-full object-cover max-h-80" 
                     />
@@ -941,6 +971,7 @@ export default function Dashboard() {
                   <option value="Lampu Jalan">Lampu Jalan</option>
                   <option value="Keamanan">Keamanan</option>
                   <option value="Fasilitas Umum">Fasilitas Umum</option>
+                  <option value="Kejadian Bencana">Kejadian Bencana</option>
                   <option value="Lainnya">Lainnya</option>
                 </select>
               </div>
@@ -963,7 +994,7 @@ export default function Dashboard() {
                     {editImage ? (
                       <img src={URL.createObjectURL(editImage)} className="w-full h-full object-cover" alt="Pratinjau baru" />
                     ) : editingComplaint.image ? (
-                      <img src={`http://localhost:5000${editingComplaint.image}`} className="w-full h-full object-cover" alt="Foto saat ini" />
+                      <img src={`${API_BASE_URL}${editingComplaint.image}`} className="w-full h-full object-cover" alt="Foto saat ini" />
                     ) : (
                       <ImageIcon className="h-8 w-8 text-gray-300" />
                     )}
